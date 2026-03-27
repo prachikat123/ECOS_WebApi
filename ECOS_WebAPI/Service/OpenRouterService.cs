@@ -50,13 +50,28 @@ namespace ECOS_WebAPI.Service
                 );
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_settings.ApiKey}");
+            _httpClient.DefaultRequestHeaders.Add("HTTP-Referer", "http://localhost");
+            _httpClient.DefaultRequestHeaders.Add("X-Title", "ECOS Project");
+
             var response = await _httpClient.PostAsync(_settings.BaseUrl, Content);
 
             var responseString = await response.Content.ReadAsStringAsync();
 
+            Console.WriteLine(responseString);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return $"API Error: {response.StatusCode} - {responseString}";
+            }
+
             dynamic json = JsonConvert.DeserializeObject(responseString);
 
-            return json.choices[0].message.content;
+            if(json?.choices == null)
+            {
+                return "Error: Invalid API response → " + responseString;
+            }
+
+            return json.choices[0]?.message?.content ?? "No content found";
 
 
         }

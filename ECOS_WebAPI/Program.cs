@@ -25,6 +25,7 @@ namespace ECOS_WebAPI
 
             builder.Services.AddHttpClient<OpenRouterService>();
             builder.Services.AddScoped<ResearchAgent>();
+            builder.Services.AddScoped<EvaluationAgent>();
             builder.Services.AddScoped<PipelineService>();
 
             //builder.Services.AddSingleton<OpenRouterService>(sp =>

@@ -6,7 +6,7 @@
 
         //step outputs
         public string ResearchOutput {  get; set; }
-        //public string EvaluationOutput {  get; set; }
+        public string EvaluationOutput { get; set; }
 
         //control flags
         public bool IsApproved { get; set; }
