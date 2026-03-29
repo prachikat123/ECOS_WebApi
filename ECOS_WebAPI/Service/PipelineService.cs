@@ -1,6 +1,7 @@
 ﻿using System.Threading.Tasks;
 using ECOS_WebAPI.Agents;
 using ECOS_WebAPI.Models;
+using Microsoft.AspNetCore.Mvc;
 
 namespace ECOS_WebAPI.Service
 {
@@ -15,28 +16,54 @@ namespace ECOS_WebAPI.Service
             _researchAgent = researchAgent;
             _evaluationAgent = evaluationAgent;
         }
-        public async Task<PipelineState> RunAsync(string niche)
+        public async Task<PipelineState> RunAsync(ResearchRequest request)
         {
             var state = new PipelineState
             {
-                Niche = niche,
+                Niche = request.Niche,
+                WebsiteUrl = request.WebsiteUrl,
                 CurrentStep = "Research"
             };
-            //Step 1 : Research
-            state.ResearchOutput = await _researchAgent.GetTrendingProducts(niche);
+
+            List<string> products = new List<string>();
+
+            // case 1 : Website Url
+            if (!string.IsNullOrEmpty(request.WebsiteUrl))
+            {
+                var websiteProducts = await _researchAgent.ExtractFromWebsite(request.WebsiteUrl);
+                products.AddRange(websiteProducts);
+            }
+
+            //  Case 2: Niche
+            if (!string.IsNullOrEmpty(request.Niche))
+            {
+                var nicheProducts = await _researchAgent.GetTrendingProducts(request.Niche);
+                products.AddRange(nicheProducts);
+            }
+
+            products = products
+           .Where(p => !p.ToLower().Contains("login"))
+            .Where(p => !p.ToLower().Contains("password"))
+            .Where(p => !p.ToLower().Contains("account"))
+            .Distinct()
+            .ToList();
+
+            state.ResearchOutput = products;
+
+            if (!products.Any() || products.Count <= 1)
+            {
+                if (!string.IsNullOrEmpty(request.Niche))
+                {
+                    var nicheProducts = await _researchAgent.GetTrendingProducts(request.Niche);
+                    products.AddRange(nicheProducts);
+                }
+            }
 
             //Step 2 : Evaluation
             state.CurrentStep = "Evaluation";
-            state.EvaluationOutput = await _evaluationAgent.EvaluateProduct(state.ResearchOutput);
+            state.EvaluationOutput = await _evaluationAgent.EvaluateWithAI(products);
 
-            if (state.EvaluationOutput.ToLower().Contains("approved"))
-            {
-                state.IsApproved = true;
-            }
-            else
-            {
-                state.IsApproved = false;
-            }
+            state.IsApproved = state.EvaluationOutput.Any(p => p.TotalScore >= 50);
 
             return state;
 

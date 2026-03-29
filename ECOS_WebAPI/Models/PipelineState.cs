@@ -3,10 +3,11 @@
     public class PipelineState
     {
         public string Niche {  get; set; }
+        public string WebsiteUrl { get; set; }
 
         //step outputs
-        public string ResearchOutput {  get; set; }
-        public string EvaluationOutput { get; set; }
+        public List<string> ResearchOutput { get; set; }
+        public List<EvaluationModel> EvaluationOutput { get; set; }
 
         //control flags
         public bool IsApproved { get; set; }

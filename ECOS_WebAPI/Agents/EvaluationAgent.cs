@@ -1,5 +1,11 @@
-﻿using  System.Threading.Tasks;
+﻿using ECOS_WebAPI.Models;
 using ECOS_WebAPI.Service;
+using Newtonsoft.Json;
+using System.Net;
+using System.Threading.Tasks;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 namespace ECOS_WebAPI.Agents
 {
     public class EvaluationAgent
@@ -9,26 +15,94 @@ namespace ECOS_WebAPI.Agents
         {
             _aiService = aiService;
         }
-        public async Task<string> EvaluateProduct(string researchOutput)
+         
+     
+        public async Task<List<EvaluationModel>> EvaluateWithAI(List<string> products)
         {
             var prompt = $@"
-            You are an e-commerce expert.
+            Evaluate ONLY the following products:
+              
+            Products:
+            {string.Join(", ", products)}
 
-            From the following product ideas:
-            {researchOutput}
+            IMPORTANT:
+           - Use ONLY these product names
+            - Do NOT create new products
+            - Do NOT use placeholders like Product A/B
+
             
-            Do the following:
-            1. Select the best product
-            2. Explain why based on:
-               - demand
-               - competition
-               - profit potential
-            3. Give final decision: Approved or Rejected
+            Return STRICT JSON:
 
-            Keep answer simple.
+            [
+              {{
+                ""productName"": ""same as input"",
+                ""trendScore"": number (1-10),
+                ""demandScore"": number (1-10),
+                ""competitionScore"": number (1-10),
+                ""profitScore"": number (1-10),
+                ""shippingScore"": number (1-10),
+                ""audienceScore"": number (1-10),
+                ""repeatScore"": number (1-10)
+              }}
+            ]
+            All scores must be between 1 and 10 only.
             ";
 
-            return await _aiService.SendPromptAsync(prompt);
+            var response= await _aiService.SendPromptAsync(prompt);
+
+            var evaluations = ParseResponse(response);
+
+            Console.WriteLine("AI RESPONSE: " + response);
+
+            foreach (var item in evaluations)
+            {
+                item.TotalScore =
+                    (item.TrendScore * 2) +
+                    (item.DemandScore * 2) +
+                    (item.CompetitionScore * 1) +
+                    (item.ProfitScore * 2) +
+                    (item.ShippingScore * 1) +
+                    (item.AudienceScore * 1) +
+                    (item.RepeatScore * 1);
+
+                if(item.TotalScore >= 60)
+                {
+                    item.Recommendation = "Best";
+                }
+                else if(item.TotalScore >= 45)
+                {
+                    item.Recommendation = "Average";
+                }
+                else
+                {
+                    item.Recommendation = "Risky";
+                }
+            }
+            return evaluations
+                 .OrderByDescending(p => p.TotalScore)
+                 .ToList();
+        }
+        private List<EvaluationModel> ParseResponse(string response)
+        {
+            try
+            {
+                var jsonStart = response.IndexOf("[");
+                var jsonEnd = response.LastIndexOf("]");
+
+                if (jsonStart >= 0 && jsonEnd > jsonStart)
+                {
+                    var cleanJson = response.Substring(jsonStart, jsonEnd - jsonStart + 1);
+
+                    var result=  JsonConvert.DeserializeObject<List<EvaluationModel>>(cleanJson);
+                           return result?? new List<EvaluationModel>();
+                }
+                return new List<EvaluationModel>();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Parsing Error: " + ex.Message);
+                return new List<EvaluationModel>();
+            }
         }
 
     }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using ECOS_WebAPI.Service;
 using ECOS_WebAPI.Models;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace ECOS_WebAPI.Controllers
 {
@@ -16,35 +17,11 @@ namespace ECOS_WebAPI.Controllers
             _pipelineService = pipelineService;
         }
 
-        [HttpGet("research")]
-        public async Task<IActionResult> RunPipeline([FromQuery] string niche)
+        [HttpPost]
+        public async Task<IActionResult> RunPipeline([FromBody] ResearchRequest request)
         {
-            if (string.IsNullOrWhiteSpace(niche))
-            {
-                return BadRequest(new
-                {
-                    message = "Niche is required"
-                });
-            }
-            try
-            {
-                var result = await _pipelineService.RunAsync(niche);
-
-                return Ok(new
-                {
-                    success = true,
-                    data = result
-                });
-            }
-            catch (System.Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = "Something went wrong",
-                    error = ex.Message
-                });
-            }
+            var result = await _pipelineService.RunAsync(request);
+            return Ok(result);
 
         }
 
