@@ -20,60 +20,54 @@ namespace ECOS_WebAPI.Service
 
         public OpenRouterService(HttpClient httpClient, IOptions<OpenRouterSettings> settings)
         {
-            _httpClient = new HttpClient();
+            _httpClient = httpClient;
             _settings = settings.Value;
         }
-       
 
-        public async Task<string> SendPromptAsync(string prompt)
+        public async Task<string> GetCompletion(string prompt)
         {
             var requestBody = new
             {
                 model = "openrouter/free",
-             
                 messages = new[]
                 {
-                    new
-                    {
-                        role="user",
-                        content = prompt
-                    }
+                    new { role = "user", content = prompt }
                 }
             };
+            var request = new HttpRequestMessage(HttpMethod.Post, _settings.BaseUrl);
 
-
-            
-            var Content = new StringContent(
-                 JsonConvert.SerializeObject(requestBody),
+            request.Content = new StringContent(
+                System.Text.Json.JsonSerializer.Serialize(requestBody),
                 Encoding.UTF8,
                 "application/json"
-                );
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_settings.ApiKey}");
-            _httpClient.DefaultRequestHeaders.Add("HTTP-Referer", "http://localhost");
-            _httpClient.DefaultRequestHeaders.Add("X-Title", "ECOS Project");
+            );
 
-            var response = await _httpClient.PostAsync(_settings.BaseUrl, Content);
+            request.Headers.Add("Authorization", $"Bearer {_settings.ApiKey}");
+            request.Headers.Add("HTTP-Referer", "http://localhost");
+            request.Headers.Add("X-Title", "ECOS Project");
 
-            var responseString = await response.Content.ReadAsStringAsync();
 
-            Console.WriteLine(responseString);
+            var response = await _httpClient.SendAsync(request);
+
+            var jsonString = await response.Content.ReadAsStringAsync();
+
+            Console.WriteLine("AI RAW RESPONSE:");
+            Console.WriteLine(jsonString);
 
             if (!response.IsSuccessStatusCode)
             {
-                return $"API Error: {response.StatusCode} - {responseString}";
+                throw new Exception($"OpenRouter API Error: {jsonString}");
             }
+            var json = JsonDocument.Parse(jsonString);
+            var content = json.RootElement
+               .GetProperty("choices")[0]
+               .GetProperty("message")
+               .GetProperty("content")
+               .GetString();
 
-            dynamic json = JsonConvert.DeserializeObject(responseString);
-
-            if(json?.choices == null)
-            {
-                return "Error: Invalid API response → " + responseString;
-            }
-
-            return json.choices[0]?.message?.content ?? "No content found";
-
+            return content;
 
         }
+
     }
 }

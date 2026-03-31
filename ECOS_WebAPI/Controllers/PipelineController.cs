@@ -17,10 +17,10 @@ namespace ECOS_WebAPI.Controllers
             _pipelineService = pipelineService;
         }
 
-        [HttpPost]
-        public async Task<IActionResult> RunPipeline([FromBody] ResearchRequest request)
+        [HttpPost("run")]
+        public async Task<IActionResult> RunPipeline([FromBody] RunPipelineRequest body)
         {
-            var result = await _pipelineService.RunAsync(request);
+            var result = await _pipelineService.RunAsync(body.Request,body.Input);
             return Ok(result);
 
         }

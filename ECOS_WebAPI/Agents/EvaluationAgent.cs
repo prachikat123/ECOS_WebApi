@@ -1,6 +1,7 @@
 ﻿using ECOS_WebAPI.Models;
 using ECOS_WebAPI.Service;
 using Newtonsoft.Json;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using System;
@@ -15,15 +16,51 @@ namespace ECOS_WebAPI.Agents
         {
             _aiService = aiService;
         }
-         
-     
-        public async Task<List<EvaluationModel>> EvaluateWithAI(List<string> products)
+
+        private string _language = "en";
+        public void SetLanguage(string language)
         {
+            _language = language;
+        }
+
+
+        public async Task<List<EvaluationModel>> EvaluateWithAI(List<Product> products, EcosSetupInput input)
+        {
+            if (products == null || !products.Any())
+                return new List<EvaluationModel>();
+
+            //List<EvaluationModel> result = new List<EvaluationModel>();
+
+            //foreach (var  product in products)
+            //{
+            //    int score = 100;
+
+            //    if (product.Price < input.MinPrice || product.Price > input.MaxPrice)
+            //    {
+            //        score -= 20;
+            //    }
+            //    if (product.EstimatedMargin < input.MinMargin)
+            //    {
+            //        score -= 30;
+            //    }
+            //    if (input.ExcludedCategories != null && input.ExcludedCategories.Any(ex => product.Name.ToLower().Contains(ex.ToLower())))
+            //    {
+            //        score = 0;
+            //    }
+
+            //    result.Add(new EvaluationModel
+            //    {
+            //        ProductName = product.Name,
+            //        TotalScore = score
+            //    });
+            //}
+            //return result;
+            
             var prompt = $@"
             Evaluate ONLY the following products:
               
             Products:
-            {string.Join(", ", products)}
+            {string.Join(", ", products.Select(p => p.Name))}
 
             IMPORTANT:
            - Use ONLY these product names
@@ -48,11 +85,12 @@ namespace ECOS_WebAPI.Agents
             All scores must be between 1 and 10 only.
             ";
 
-            var response= await _aiService.SendPromptAsync(prompt);
+            var response= await _aiService.GetCompletion(prompt);
 
             var evaluations = ParseResponse(response);
 
-            Console.WriteLine("AI RESPONSE: " + response);
+            if (evaluations == null || !evaluations.Any())
+                return new List<EvaluationModel>();
 
             foreach (var item in evaluations)
             {
@@ -79,7 +117,7 @@ namespace ECOS_WebAPI.Agents
                 }
             }
             return evaluations
-                 .OrderByDescending(p => p.TotalScore)
+                 .OrderByDescending(x => x.TotalScore)
                  .ToList();
         }
         private List<EvaluationModel> ParseResponse(string response)
@@ -93,16 +131,17 @@ namespace ECOS_WebAPI.Agents
                 {
                     var cleanJson = response.Substring(jsonStart, jsonEnd - jsonStart + 1);
 
-                    var result=  JsonConvert.DeserializeObject<List<EvaluationModel>>(cleanJson);
-                           return result?? new List<EvaluationModel>();
+                    var result=  JsonConvert.DeserializeObject<List<EvaluationModel>>(cleanJson)
+                           ?? new List<EvaluationModel>();
                 }
-                return new List<EvaluationModel>();
+                
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Parsing Error: " + ex.Message);
-                return new List<EvaluationModel>();
+                
             }
+            return new List<EvaluationModel>();
         }
 
     }

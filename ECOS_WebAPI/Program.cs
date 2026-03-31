@@ -2,6 +2,8 @@
 
 using ECOS_WebAPI.Agents;
 using ECOS_WebAPI.Models;
+using ECOS_WebAPI.Rules;
+using ECOS_WebAPI.Rules.Interfaces;
 using ECOS_WebAPI.Service;
 
 namespace ECOS_WebAPI
@@ -23,10 +25,19 @@ namespace ECOS_WebAPI
             builder.Configuration.GetSection("OpenRouter")
             );
 
+            builder.Services.Configure<ShopifySettings>(
+            builder.Configuration.GetSection("Shopify")
+            );
+
             builder.Services.AddHttpClient<OpenRouterService>();
             builder.Services.AddScoped<ResearchAgent>();
             builder.Services.AddScoped<EvaluationAgent>();
             builder.Services.AddScoped<PipelineService>();
+            builder.Services.AddScoped<MarketRuleResolver>();
+            builder.Services.AddScoped<LanguageResolver>();
+            builder.Services.AddHttpClient<IExchangeRateProvider, ExchangeRateProvider>();
+            builder.Services.AddScoped<CurrencyService>();
+            builder.Services.AddHttpClient<ShopifyService>();
 
             //builder.Services.AddSingleton<OpenRouterService>(sp =>
             //{

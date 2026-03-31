@@ -6,7 +6,7 @@
         public string WebsiteUrl { get; set; }
 
         //step outputs
-        public List<string> ResearchOutput { get; set; }
+        public List<Product> ResearchOutput { get; set; }
         public List<EvaluationModel> EvaluationOutput { get; set; }
 
         //control flags
