@@ -12,6 +12,7 @@ namespace ECOS_WebAPI.Service
         }
         public async Task<CurrencyConvertResponse> ConvertAsync(CurrencyConvertRequest request)
         {
+
             if (request.Amount <= 0)
                 throw new ArgumentException("Amount must be greater than 0");
 
@@ -30,13 +31,14 @@ namespace ECOS_WebAPI.Service
                 request.FromCurrency.ToUpper(),
                 request.ToCurrency.ToUpper()
             );
+            var convertedAmount = request.Amount * rate;
             return new CurrencyConvertResponse
             {
                 FromCurrency = request.FromCurrency.ToUpper(),
                 ToCurrency = request.ToCurrency.ToUpper(),
                 OriginalAmount = request.Amount,
                 ExchangeRate = rate,
-                ConvertedAmount = Math.Round(request.Amount * rate,2)
+                ConvertedAmount = convertedAmount
             };
         }
     }

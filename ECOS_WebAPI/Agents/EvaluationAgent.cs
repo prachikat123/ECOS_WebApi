@@ -29,68 +29,48 @@ namespace ECOS_WebAPI.Agents
             if (products == null || !products.Any())
                 return new List<EvaluationModel>();
 
-            //List<EvaluationModel> result = new List<EvaluationModel>();
+            products = products
+               .Where(p => !string.IsNullOrWhiteSpace(p.Name))
+               .GroupBy(p => p.Name)
+               .Select(g => g.First())
+               .ToList();
 
-            //foreach (var  product in products)
-            //{
-            //    int score = 100;
-
-            //    if (product.Price < input.MinPrice || product.Price > input.MaxPrice)
-            //    {
-            //        score -= 20;
-            //    }
-            //    if (product.EstimatedMargin < input.MinMargin)
-            //    {
-            //        score -= 30;
-            //    }
-            //    if (input.ExcludedCategories != null && input.ExcludedCategories.Any(ex => product.Name.ToLower().Contains(ex.ToLower())))
-            //    {
-            //        score = 0;
-            //    }
-
-            //    result.Add(new EvaluationModel
-            //    {
-            //        ProductName = product.Name,
-            //        TotalScore = score
-            //    });
-            //}
-            //return result;
-            
             var prompt = $@"
-            Evaluate ONLY the following products:
-              
-            Products:
-            {string.Join(", ", products.Select(p => p.Name))}
+                You are a strict JSON generator.
 
-            IMPORTANT:
-           - Use ONLY these product names
-            - Do NOT create new products
-            - Do NOT use placeholders like Product A/B
+                ONLY output valid JSON array.
 
-            
-            Return STRICT JSON:
+                NO explanation.
+                NO markdown.
+                NO text.
 
-            [
-              {{
-                ""productName"": ""same as input"",
-                ""trendScore"": number (1-10),
-                ""demandScore"": number (1-10),
-                ""competitionScore"": number (1-10),
-                ""profitScore"": number (1-10),
-                ""shippingScore"": number (1-10),
-                ""audienceScore"": number (1-10),
-                ""repeatScore"": number (1-10)
-              }}
-            ]
-            All scores must be between 1 and 10 only.
-            ";
+                Products:
+                {string.Join(", ", products.Select(p => p.Name))}
+
+                Return format:
+                [
+                  {{
+                    ""productName"": ""string"",
+                    ""trendScore"": 1-10,
+                    ""demandScore"": 1-10,
+                    ""competitionScore"": 1-10,
+                    ""profitScore"": 1-10,
+                    ""shippingScore"": 1-10,
+                    ""audienceScore"": 1-10,
+                    ""repeatScore"": 1-10
+                  }}
+                ]
+                ";
 
             var response= await _aiService.GetCompletion(prompt);
+
+            if (string.IsNullOrWhiteSpace(response))
+                return CreateFallback(products);
 
             var evaluations = ParseResponse(response);
 
             if (evaluations == null || !evaluations.Any())
-                return new List<EvaluationModel>();
+                return CreateFallback(products);
 
             foreach (var item in evaluations)
             {
@@ -124,6 +104,7 @@ namespace ECOS_WebAPI.Agents
         {
             try
             {
+                response = response.Trim();
                 var jsonStart = response.IndexOf("[");
                 var jsonEnd = response.LastIndexOf("]");
 
@@ -131,8 +112,10 @@ namespace ECOS_WebAPI.Agents
                 {
                     var cleanJson = response.Substring(jsonStart, jsonEnd - jsonStart + 1);
 
-                    var result=  JsonConvert.DeserializeObject<List<EvaluationModel>>(cleanJson)
-                           ?? new List<EvaluationModel>();
+                    var result= JsonConvert.DeserializeObject<List<EvaluationModel>>(cleanJson);
+
+                    return result ?? new List<EvaluationModel>();
+
                 }
                 
             }
@@ -143,6 +126,24 @@ namespace ECOS_WebAPI.Agents
             }
             return new List<EvaluationModel>();
         }
+
+        private List<EvaluationModel> CreateFallback(List<Product> products)
+        {
+            return products.Select(p => new EvaluationModel
+            {
+                ProductName = p.Name,
+                TrendScore = 5,
+                DemandScore = 5,
+                CompetitionScore = 5,
+                ProfitScore = 5,
+                ShippingScore = 5,
+                AudienceScore = 5,
+                RepeatScore = 5,
+                TotalScore = 50,
+                Recommendation = "Average"
+            }).ToList();
+        }
+
 
     }
 }

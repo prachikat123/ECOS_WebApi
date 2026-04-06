@@ -1,4 +1,5 @@
 ﻿using ECOS_WebAPI.Models;
+using ECOS_WebAPI.Rules;
 using ECOS_WebAPI.Service;
 using HtmlAgilityPack;
 using System.Net.Http;
@@ -10,11 +11,23 @@ namespace ECOS_WebAPI.Agents
     {
         private readonly HttpClient _httpClient;
         private readonly OpenRouterService _aiService;
+        private readonly ProductService _productService;
+        private readonly ProductRelevanceRule _relevanceRule;
+        private readonly AIRelevanceService _aiRelevanceService;
+        private readonly CategoryDetector _categoryDetector;
+        private readonly EmbeddingService _embeddingService;
 
-        public ResearchAgent(HttpClient httpClient, OpenRouterService aiService)
+        public ResearchAgent(HttpClient httpClient, OpenRouterService aiService, ProductService productService,
+            ProductRelevanceRule relevanceRule, AIRelevanceService aiRelevanceService, CategoryDetector categoryDetector,
+            EmbeddingService embeddingService)
         {
             _httpClient = httpClient;
             _aiService = aiService;
+            _productService = productService;
+            _relevanceRule = relevanceRule;
+            _aiRelevanceService = aiRelevanceService;
+            _categoryDetector = categoryDetector;
+            _embeddingService = embeddingService;
         }
 
         private string _language = "en";
@@ -26,102 +39,199 @@ namespace ECOS_WebAPI.Agents
         {
             var html = await GetWebsiteHtml(url);
 
+            var rawProducts = ExtractRawProducts(html);
+
+            var finalProducts = await FilterByNicheWithAI(rawProducts);
+
+            return finalProducts;
+        }
+        private List<string> ExtractRawProducts(string html)
+        {
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
 
             var products = new List<string>();
 
-            var nodes = doc.DocumentNode.SelectNodes("//h1 | //h2 | //h3 | //a");
+            var nodes = doc.DocumentNode.SelectNodes("//h1 | //h2 | //h3 | //p | //span | //a");
+            if (nodes == null)
+                return products;
 
-            if (nodes != null)
+            foreach (var node in nodes)
             {
-                foreach (var node in nodes)
+                var text = node.InnerText?.Trim();
+                if (string.IsNullOrWhiteSpace(text))
+                    continue;
+
+                text = Regex.Replace(text, @"\s+", " ");
+                var lower = text.ToLower();
+
+                if (lower.Length < 5 || lower.Length > 80)
+                    continue;
+
+                if (Regex.IsMatch(lower, @"\d{4,}"))
+                    continue;
+
+                var blacklist = new[]
                 {
-                    var text = node.InnerText.Trim().ToLower();
+                    "login","password","cart","checkout","account",
+                    "home","shop","share","tweet","enter","icon",
+                    "menu","footer","header","subscribe","copyright"
+                };
 
-                    if (!string.IsNullOrEmpty(text) &&
-                        text.Length > 5 &&
-                        text.Length < 80 &&
-                        !text.Contains("login") &&
-                        !text.Contains("password") &&
-                        !text.Contains("account") &&
-                        !text.Contains("cart") &&
-                        !text.Contains("share") &&
-                        !text.Contains("tweet") &&
-                        !text.Contains("home") &&
-                        !text.Contains("shop") &&
-                        !text.Contains("opening") &&
-                        !text.Contains("enter") &&
-                        !text.Contains("icon") &&
-                        !text.Any(char.IsDigit))
-                    {
-                        products.Add(node.InnerText.Trim());
-                    }
-                }
-
+                if (blacklist.Any(b => lower.Contains(b)))
+                    continue;
+                products.Add(text);
             }
-            var rawProducts = products
-                     .Distinct()
-                     .Take(10)
-                     .ToList();
+            return products
+                .Distinct()
+                .Take(15)
+                .ToList();
 
+        }
+
+        private async Task<List<string>> FilterByNicheWithAI(List<string> rawProducts)
+        {
             var prompt = $@"
-                From the following extracted website data, identify real e-commerce product ideas.
+                You are an expert e-commerce product extraction system.
 
-                IMPORTANT RULES:
-                - Remove UI text (login, cart, navigation, home, shop, share, etc.)
-                - Keep only real products
-                - Return ONLY product names
+                TASK:
+                Filter ONLY real sellable products relevant to the niche: {_language};
+
+                RULES:
+                - Remove all UI/navigation words (login, cart, home, shop, etc.)
+                - Keep ONLY real, sellable products
+                - Remove duplicates
+                - If a word is not a product, ignore it
+                - Output ONLY comma-separated product names
                 - No explanation
                 - No numbering
-                - Output comma-separated list
-                - Language of output must be: {_language}
+                - No markdown
+                - No extra text
 
-                DATA:
+                INPUT LIST:
                 {string.Join(", ", rawProducts)}
                 ";
 
             var aiResult = await _aiService.GetCompletion(prompt);
-            return aiResult
-                .Split(',')
-                .Select(p => p.Trim())
-                .Where(p => !string.IsNullOrEmpty(p))
-                .Distinct()
-                .Take(10)
-                .ToList();
-        }
 
+            if (string.IsNullOrWhiteSpace(aiResult))
+                return new List<string>();
+
+            return aiResult
+                 .Replace("\n", ",")
+                 .Replace("-", ",")
+                 .Split(',')
+                 .Select(x => x.Trim())
+                 .Where(x => !string.IsNullOrWhiteSpace(x))
+                 .Distinct()
+                 .Take(10)
+                 .ToList();
+
+        }
         private async Task<string> GetWebsiteHtml(string url)
         {
-            var client = new HttpClient();
+            try
+            {
 
-            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0");
+                _httpClient.Timeout = TimeSpan.FromSeconds(20);
+                _httpClient.DefaultRequestHeaders.Clear();
 
-            return await client.GetStringAsync(url);
+                _httpClient.DefaultRequestHeaders.Add(
+                    "User-Agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+                );
+
+                var response = await _httpClient.GetAsync(url);
+
+                if (!response.IsSuccessStatusCode)
+                    return string.Empty;
+
+                return await response.Content.ReadAsStringAsync();
+
+            }
+            catch
+            {
+                return string.Empty;
+            }
+
         }
 
-        public async Task<List<ResearchOutput>> GenerateProductIdeas(string url)
+        public async Task<List<Product>> ConvertToCommercialProducts(List<string> products, EcosSetupInput input)
+        {
+            var prompt = $@"
+                You are an expert e-commerce product cleaner.
+
+                TASK:
+                Return ONLY valid product names.
+
+                INPUT:
+                {string.Join(", ", products)}
+
+                RULES:
+                -No price
+                - No description
+                - No category
+                - Only product names
+                - Return comma-separated list
+                ";
+
+            var aiResult = await _aiService.GetCompletion(prompt);
+
+            if (string.IsNullOrWhiteSpace(aiResult))
+                return new List<Product>();
+
+            var cleanProducts = aiResult
+                .Replace("\n", ",")
+                .Split(',')
+                .Select(x => x.Trim())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct()
+                .ToList();
+
+            var result = new List<Product>();
+
+            foreach (var name in cleanProducts)
+            {
+                if (!_relevanceRule.IsRelevant(input.Niche, name))
+                    continue;
+
+                bool isRelevant = await _aiRelevanceService.IsRelevant(input.Niche, name);
+
+                if (!isRelevant)
+                    continue;
+
+                var score = await _embeddingService.GetSimilarity(input.Niche, name);
+
+                if (score < 0.6)
+                    continue;
+
+                var category = _categoryDetector.Detect(name);
+
+                if (category == "Other")
+                    continue;
+
+                var product = _productService.BuildProduct(name, input);
+                product.Category = category;
+
+                product.RelevanceScore = (int)(score * 100);
+
+                result.Add(product);
+            }
+
+            return result;
+
+        }
+
+
+        public async Task<List<Product>> GenerateProductIdeas(string url, EcosSetupInput input)
         {
             var products = await ExtractFromWebsite(url);
-            var prompt = $@"
-                Convert these product names into structured e-commerce products.
-
-                Return JSON array with:
-                title, description, category, price
-
-                Rules:
-                - price must be numeric
-                - description must be 1 line
-                - category must be e-commerce category
-                - return ONLY JSON array
-
-                Data:
-                {string.Join(",", products)}
-                ";
-            var aiResult = await _aiService.GetCompletion(prompt);
-            var result = System.Text.Json.JsonSerializer.Deserialize<List<ResearchOutput>>(aiResult);
-            return result ?? new List<ResearchOutput>();
+            var commercialProducts = await ConvertToCommercialProducts(products, input);
+            return commercialProducts;
         }
+
+
+       
         public async Task<List<string>> GetTrendingProducts(string niche)
         {
             var prompt = $@"
@@ -155,6 +265,7 @@ namespace ECOS_WebAPI.Agents
                 .Where(p => !string.IsNullOrEmpty(p))
                 .ToList();
         }
+       
     }
     
-    }
+}
