@@ -52,7 +52,7 @@ ECOS follows a **layered clean architecture**:
 ###  Meta Ads Integration
 - Campaign creation logic
 - Budget optimization for ads
-- Automated targeting flow design
+  - Automated targeting flow design
 
 ###  Meta CAPI Integration
 - Tracks conversion events
@@ -64,7 +64,7 @@ ECOS follows a **layered clean architecture**:
 - API-ready structure for store automation
 
 
-##  Database & Migrations
+###  Database & Migrations
 - EF Core-based migrations implemented
 - Structured schema for products, suppliers, campaigns, and analytics
 - Scalable database design for future AI expansion
@@ -94,7 +94,10 @@ ECOS follows a **layered clean architecture**:
 - Scalable .NET backend design
 - Real-world integration with marketing platforms
 - Business-focused decision intelligence system
-- 
+
+  ###  Known Issue
+- Meta Ads "create-full-ad" API flow is currently under debugging due to request validation / permission issues.
+- Integration structure is implemented, but full ad creation flow needs API-level fixes and testing in sandbox environment.
 
 ##  Future Improvements
 - Add ML-based product demand prediction
