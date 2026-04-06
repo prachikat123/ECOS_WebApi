@@ -101,6 +101,15 @@ ECOS follows a **layered clean architecture**:
 - Real-time dashboard for campaign tracking
 - Advanced AI optimization for ad performance
 - Multi-platform marketplace integration (Amazon, Etsy)
+- Expand AI agent ecosystem:
+  - Add remaining agents for complete automation pipeline - Content Agent, Landing Page Builder Agent, Creative Agent, Ad Launch Agent, Tracking Agent,Email &         LTV Agent,Optimization Agent.
+  - Enhance coordination between existing agents (ResearchProduct, Evaluation, Sourcing)
+- Implement advanced orchestration layer for agent workflow management
+- Develop a **frontend dashboard** for ECOS:
+  - Visualize product insights, supplier evaluation, and pricing recommendations
+  - Display campaign performance and budget allocation
+  - Provide user-friendly interface for interacting with AI agents
+- Improve scalability for high-volume e-commerce operations
 
 ## Developer
 
