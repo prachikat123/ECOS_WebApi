@@ -119,7 +119,7 @@ ECOS follows a **layered clean architecture**:
 
 ##  Deployment
 
-- GitHub Repo: [Add your GitHub link here]
+- GitHub Repo: https://github.com/prachikat123/ECOS_WebApi.git
 
 ---
 
