@@ -1,5 +1,6 @@
 ﻿using ECOS_WebAPI.Models;
 using ECOS_WebAPI.Service;
+using ECOS_WebAPI.Service.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -19,8 +20,10 @@ namespace ECOS_WebAPI.Controllers
         [HttpPost("create-full-ad")]
         public async Task<IActionResult> CreateFullAd([FromBody] CreateAdRequest request)
         {
-            var result = await _service.CreateFullAdFlow(request);
-            return Ok(result);
+            if (request == null)
+                return BadRequest("Request body is required");
+
+            return Ok(await _service.CreateFullAdFlow(request));
         }
     }
 }

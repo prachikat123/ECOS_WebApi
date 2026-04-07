@@ -19,13 +19,13 @@ namespace ECOS_WebAPI.Models
         public int AgeMin { get; set; }
         public int AgeMax { get; set; }
         public string Gender { get; set; }
-        public string Interests { get; set; }
+        public List<string> Interests { get; set; }
         public string OptimizationGoal { get; set; }
         public string CampaignPlanName { get; set; }
         public string PrimaryText { get; set; }
         public string Headline { get; set; }
         public string CallToAction { get; set; }
-        public string Keywords { get; set; }
+        public List<string> Keywords { get; set; }
         public string Platform { get; set; }
 
         public string LandingPageUrl { get; set; }

@@ -309,12 +309,13 @@ namespace ECOS_WebAPI.Service
             $"?fields=impressions,clicks,spend,ctr&access_token={_settings.AccessToken}";
 
             var response = await _http.GetAsync(url);
+          
 
             if (!response.IsSuccessStatusCode)
             {
                 throw new Exception($"Meta API Error: {response.StatusCode}");
             }
-
+           
                 return await response.Content.ReadAsStringAsync();
         }
     }

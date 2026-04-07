@@ -50,14 +50,26 @@ namespace ECOS_WebAPI.Service
             using var adDoc = JsonDocument.Parse(adContent);
             var accounts = adDoc.RootElement.GetProperty("data");
 
-            var adAccountId = accounts.EnumerateArray()
-                    .FirstOrDefault()
-                    .GetProperty("id")
-                    .GetString();
+            var adAccount = accounts.EnumerateArray()
+                    .FirstOrDefault(x => x.GetProperty("account_status").GetInt32() == 1);
 
-            //act_format
+            if (adAccount.ValueKind == JsonValueKind.Undefined)
+            {
+                throw new Exception("No active Ad Account found");
+            }
+
+            // Prefix logic
+            var adAccountId = adAccount.GetProperty("id").GetString();
+
+            if (string.IsNullOrWhiteSpace(adAccountId))
+            {
+                throw new Exception("AdAccountId is null");
+            }
+
             if (!adAccountId.StartsWith("act_"))
+            {
                 adAccountId = "act_" + adAccountId;
+            }
 
             //  STEP 3: Save to DB
             var existing = await _db.MetaConfigs
