@@ -97,6 +97,8 @@ namespace ECOS_WebAPI.Agents
                 TASK:
                 Filter ONLY real sellable products relevant to the niche: {_language};
 
+                
+
                 RULES:
                 - Remove all UI/navigation words (login, cart, home, shop, etc.)
                 - Keep ONLY real, sellable products
@@ -212,6 +214,8 @@ namespace ECOS_WebAPI.Agents
 
                 var product = _productService.BuildProduct(name, input);
                 product.Category = category;
+
+                product.Description = $"{name} is a high-demand product in the {category} category, suitable for modern e-commerce stores.";
 
                 product.RelevanceScore = (int)(score * 100);
 

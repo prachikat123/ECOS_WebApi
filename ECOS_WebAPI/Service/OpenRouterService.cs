@@ -26,14 +26,16 @@ namespace ECOS_WebAPI.Service
 
         public async Task<string> GetCompletion(string prompt)
         {
+            
             var requestBody = new
             {
-                model = "openrouter/free",
+                model = "openai/gpt-4o-mini",
                 messages = new[]
                 {
                     new { role = "user", content = prompt }
                 }
             };
+
             var request = new HttpRequestMessage(HttpMethod.Post, _settings.BaseUrl);
 
             request.Content = new StringContent(

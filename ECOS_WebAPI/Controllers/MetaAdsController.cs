@@ -17,7 +17,7 @@ namespace ECOS_WebAPI.Controllers
         }
 
         [HttpPost("create-full-ad")]
-        public async Task<IActionResult> CreateFullAd([FromForm] CreateAdRequest request)
+        public async Task<IActionResult> CreateFullAd([FromBody] CreateAdRequest request)
         {
             var result = await _service.CreateFullAdFlow(request);
             return Ok(result);
